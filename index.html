@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>My Sketch</title>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/processing.js/1.6.0/processing.min.js"></script>
+	</head>
+	<body>
+		<script type="application/processing">
+			GameHandler gameHandler;
+boolean initializing = false;
+
+// MOUSE VARIABLES
+boolean initialMousePressed = false;
+boolean previousMousePressed = false;
+float initialMouseX = 0;
+float initialMouseY = 0;
+
+AdvancedBoard advBoard = new AdvancedBoard();
+
+Symbol turnSymbol = new Symbol();
+
+void setup(){
+  //size(800, 800);
+  size(window.innerWidth, window.innerHeight);
+  InitGame();
+}
+
+void InitGame(){
+  gameHandler = new GameHandler();
+  
+  advBoard = new AdvancedBoard();
+  
+  advBoard.posX = 0;
+  advBoard.posY = 100;
+  float size = min(width - advBoard.posX, height - advBoard.posY);
+  advBoard.sizeX = size;
+  advBoard.sizeY = size;
+  advBoard.insets = 20;
+  advBoard.Adjust();
+  
+  initializing = true;
+}
+
+void draw(){
+//frame.setSize(window.innerWidth, window.innerHeight);
+  background(200);
+  
+  ShowUI();
+  
+  advBoard.Show();
+  if(!initializing){
+    advBoard.Update();
+  }
+  
+  updateMouse();
+  
+  if(advBoard.win && !advBoard.initialWin){
+    if(initialMousePressed){
+      InitGame();
+    }
+  }
+  
+  if(advBoard.initialWin)
+    advBoard.initialWin = false;
+    
+    if(!mousePressed){
+      initializing = false;
+    }
+}
+
+void ShowUI(){
+  if(!advBoard.win){
+    ShowTurn(width * 0.15, 50);
+  }else{
+    ShowWinner(width * 0.5, 50);
+  }
+}
+
+void ShowWinner(float x, float y){
+  textSize(32);
+  fill(0);
+  String t = "Winner: ";
+  text(t, x - textWidth(t), y);
+  
+  turnSymbol.Set(x + 10, y-40, 50, 50);
+  turnSymbol.symbol = advBoard.winningSymbol;
+  turnSymbol.active = true;
+  turnSymbol.Show();
+}
+
+void ShowTurn(float x, float y){
+  textSize(32);
+  fill(0);
+  String t = "Turn: ";
+  text(t, x - textWidth(t), y);
+  
+  turnSymbol.Set(x + 10, y-40, 50, 50);
+  turnSymbol.symbol = gameHandler.turn;
+  turnSymbol.active = true;
+  turnSymbol.Show();
+}
+
+void updateMouse(){
+  if(mousePressed && !previousMousePressed){
+    initialMousePressed = true;
+    initialMouseX = mouseX;
+    initialMouseY = mouseY;
+  }else{
+    initialMousePressed = false;
+  }
+  
+  previousMousePressed = mousePressed;
+}
+
+class AdvancedBoard extends TicTacToeBoard {
+
+  TicTacToeBoard[][] boards = new TicTacToeBoard[3][3];
+  float boardInsets = 10;
+
+  Symbol winningSymb;
+  
+  
+
+  AdvancedBoard() {
+    Init();
+    InitTic();
+    InitBoards();
+
+    Adjust();  
+  }
+
+  void Adjust() {
+    AdjustButtons();
+    AdjustSymbols();
+    AdjustBoards();
+    winningSymb = new Symbol(posX, posY, sizeX, sizeY);
+    
+    SetSymbolAlphas(100, 100);
+  }
+  
+  void SetSymbolAlphas(float a, float offset){
+    for (int x = 0; x < symbols[0].length; x++) {
+      for (int y = 0; y < symbols[1].length; y++) {
+        symbols[x][y].alpha = a;
+        symbols[x][y].colorOffset  = offset;
+      }
+    }
+  }
+
+  void InitBoards() {
+    float spacingX = (sizeX - 2 * insets) / 3.0;
+    float spacingY = (sizeY - 2 * insets) / 3.0;
+
+    for (int x = 0; x < boards[0].length; x++) {
+      for (int y = 0; y < boards[1].length; y++) {
+        boards[x][y] = new TicTacToeBoard();
+      }
+    }
+  }
+
+  void AdjustBoards() {
+    float spacingX = (sizeX - 2 * insets) / 3.0;
+    float spacingY = (sizeY - 2 * insets) / 3.0;
+
+    float startX = posX + insets + buttonInsets;
+    float startY = posY + insets + buttonInsets;
+
+    float sx = spacingX - 2*buttonInsets;
+    float sy = spacingY - 2*buttonInsets;
+
+    boards[0][0] = new TicTacToeBoard(startX, startY, sx, sy, boardInsets);
+    boards[1][0] = new TicTacToeBoard(startX + spacingX, startY, sx, sy, boardInsets);
+    boards[2][0] = new TicTacToeBoard(startX + 2*spacingX, startY, sx, sy, boardInsets);
+
+    startY = posY + insets + spacingY + buttonInsets;
+    boards[0][1] = new TicTacToeBoard(startX, startY, sx, sy, boardInsets);
+    boards[1][1] = new TicTacToeBoard(startX + spacingX, startY, sx, sy, boardInsets);
+    boards[2][1] = new TicTacToeBoard(startX + 2*spacingX, startY, sx, sy, boardInsets);
+
+    startY = posY + insets + 2 * spacingY + buttonInsets;
+    boards[0][2] = new TicTacToeBoard(startX, startY, sx, sy, boardInsets);
+    boards[1][2] = new TicTacToeBoard(startX + spacingX, startY, sx, sy, boardInsets);
+    boards[2][2] = new TicTacToeBoard(startX + 2*spacingX, startY, sx, sy, boardInsets);
+  }
+
+  void Show() {
+    ShowSymbols();
+    ShowBoard();
+    ShowBoards();
+    
+
+    //ShowButtons();
+    
+    if(win){
+      SetGreyAllSymbols(true);
+      active = false;
+      winningSymb.active = true;
+      DeactivateBoards();
+      winningSymb.symbol = winningSymbol;
+      winningSymb.Show();
+    }
+  }
+
+  void ShowBoards() {
+    for (int x = 0; x < boards[0].length; x++) {
+      for (int y = 0; y < boards[1].length; y++) {
+        boards[x][y].Show();
+      }
+    }
+  }
+
+  void Update() {
+    if (!win) {
+      UpdateButtons();
+      UpdateBoards();
+      UpdateWins();
+      CheckWin();
+    }
+  }
+
+  void UpdateBoards() {
+    for (int x = 0; x < boards[0].length; x++) {
+      for (int y = 0; y < boards[1].length; y++) {
+        if (boards[x][y].active) {
+          boards[x][y].Update();
+
+          if (boards[x][y].moveMade) {
+            DeactivateBoards();
+
+            int moveX = boards[x][y].moveX;
+            int moveY = boards[x][y].moveY;
+  
+            if (!boards[moveX][moveY].full) {
+              boards[moveX][moveY].Activate();
+            } else {
+              ActivateBoards();
+              DeactivateFullBoards();
+            }
+
+            boards[x][y].moveMade = false;
+          }
+        }
+      }
+    }
+  }
+
+  void DeactivateBoards() {
+    for (int x = 0; x < boards[0].length; x++) {
+      for (int y = 0; y < boards[1].length; y++) {
+        boards[x][y].Deactivate();
+      }
+    }
+  }
+
+  void UpdateWins() {
+    for (int x = 0; x < boards[0].length; x++) {
+      for (int y = 0; y < boards[1].length; y++) {
+        if (boards[x][y].initialWin) {
+          MoveMadeAt(x, y);
+          boards[x][y].initialWin = false;
+        }
+      }
+    }
+  }
+
+  void MoveMadeAt(int x, int y) {
+    moveMade = true;
+    moveX = x;
+    moveY = y;
+    buttons[x][y].active = false;
+    tiles[x][y] = gameHandler.AntiTurn();
+    symbols[x][y].active = true;
+    symbols[x][y].symbol = gameHandler.AntiTurn();
+    //gameHandler.TurnTaken();
+  }
+
+  void ActivateBoards() {
+    for (int x = 0; x < boards[0].length; x++) {
+      for (int y = 0; y < boards[1].length; y++) {
+        boards[x][y].Activate();
+      }
+    }
+  }
+
+  void DeactivateWonBoards() {
+    for (int x = 0; x < boards[0].length; x++) {
+      for (int y = 0; y < boards[1].length; y++) {
+        if (boards[x][y].win) {
+          boards[x][y].Deactivate();
+        }
+      }
+    }
+  }
+  
+  void DeactivateFullBoards(){
+    for (int x = 0; x < boards[0].length; x++) {
+      for (int y = 0; y < boards[1].length; y++) {
+        if (boards[x][y].full) {
+          boards[x][y].Deactivate();
+        }
+      }
+    }
+  }
+}
+
+class Board {
+
+  float posX, posY;
+  float sizeX, sizeY;
+
+  float insets = 10;
+  float buttonInsets = 10;
+  
+  Button[][] buttons = new Button[3][3];
+  
+  char[][] tiles = new char[3][3];
+  
+  boolean active = true;
+  
+  boolean full = false;
+
+  Board() {
+    Init();
+    
+    AdjustButtons();
+  }
+
+  Board(float x, float y, float sx, float sy, float _insets) {
+    Init();
+
+    posX = x;
+    posY = y;
+    sizeX = sx;
+    sizeY = sy;
+
+    insets = _insets;
+    
+    AdjustButtons();
+  }
+
+  void Init() { 
+    ClearTiles();
+  }
+  
+  void ClearTiles(){
+    for(int x = 0; x < tiles[0].length; x++){
+      for(int y = 0; y < tiles[1].length; y++){
+        tiles[x][y] = ' ';
+      }
+    }
+  }
+  
+  void AdjustButtons(){
+    float spacingX = (sizeX - 2 * insets) / 3.0;
+    float spacingY = (sizeY - 2 * insets) / 3.0;
+    
+    float startX = posX + insets + buttonInsets;
+    float startY = posY + insets + buttonInsets;
+    
+    float sx = spacingX - 2*buttonInsets;
+    float sy = spacingY - 2*buttonInsets;
+    
+    buttons[0][0] = new Button(startX, startY, sx, sy);
+    buttons[1][0] = new Button(startX + spacingX, startY, sx, sy);
+    buttons[2][0] = new Button(startX + 2*spacingX, startY, sx, sy);
+    
+    startY = posY + insets + spacingY + buttonInsets;
+    buttons[0][1] = new Button(startX, startY, sx, sy);
+    buttons[1][1] = new Button(startX + spacingX, startY, sx, sy);
+    buttons[2][1] = new Button(startX + 2*spacingX, startY, sx, sy);
+    
+    startY = posY + insets + 2 * spacingY + buttonInsets;
+    buttons[0][2] = new Button(startX, startY, sx, sy);
+    buttons[1][2] = new Button(startX + spacingX, startY, sx, sy);
+    buttons[2][2] = new Button(startX + 2*spacingX, startY, sx, sy);
+  }
+
+  void Show() {
+    ShowBoard();
+    
+    ShowButtons();
+  }
+  
+  void ShowBoard(){
+    noFill();
+    strokeWeight(5);
+    
+    if(active){
+      stroke(0);
+    }else{
+      stroke(150);
+    }
+
+    float spacingX = (sizeX - 2 * insets) / 3.0;
+    float spacingY = (sizeY - 2 * insets) / 3.0;
+
+    float x = posX + spacingX + insets;
+    
+    float startY = posY + insets;
+    float endY = posY + 3 * spacingY + insets;
+    
+    line(x, startY, x, endY);
+
+    x = posX + 2 * spacingX + insets;
+    line(x, startY, x, endY);
+
+    float y = posY + spacingY + insets;
+    
+    float startX = posX + insets;
+    float endX = posX + 3 * spacingX + insets;
+    
+    line(startX, y, endX, y);
+
+    y = posY + 2 * spacingY + insets;
+    line(startX, y, endX, y);
+  }
+  
+  void ShowButtons(){
+    for(int x = 0; x < buttons[0].length; x++){
+      for(int y = 0; y < buttons[1].length; y++){
+        buttons[x][y].Show();
+      }
+    }
+  }
+
+  void Update() {
+    UpdateButtons();
+  }
+  
+  void UpdateButtons(){
+    for(int x = 0; x < buttons[0].length; x++){
+      for(int y = 0; y < buttons[1].length; y++){
+        buttons[x][y].Update();
+      }
+    }
+  }
+}
+
+class Button {
+
+  boolean active;
+
+  float posX;
+  float posY;
+  float sizeX;
+  float sizeY;
+
+  boolean pressed;
+  boolean toggled;
+
+  Button() {
+    Init();
+  }
+
+  Button(float x, float y, float sx, float sy) {
+    Init();
+    posX = x;
+    posY = y;
+    sizeX = sx;
+    sizeY = sy;
+  }
+
+  void Init() {
+    posX = 0;
+    posY = 0;
+    sizeX = 0;
+    sizeY = 0;
+
+    pressed = false;
+    toggled = false;
+    active = true;
+  }
+
+  void Show() {
+    if (active) {
+      strokeWeight(3);
+
+      if (toggled) {
+        stroke(0, 255, 0);
+      } else {
+        stroke(0);
+      }
+
+      if (pressed) {
+        fill(100);
+      } else {
+        fill(150);
+      }
+      rect(posX, posY, sizeX, sizeY);
+    }
+  }
+
+  void Update() {
+    if (active) {
+      if (mousePressed && pointInButton(mouseX, mouseY) && pointInButton(initialMouseX, initialMouseY)) {
+        pressed = true;
+
+        if (initialMousePressed)
+          toggled = toggled? false : true;
+      } else {
+        pressed = false;
+      }
+    }
+  }
+
+  boolean pointInButton(float x, float y) {    
+    if (x > posX && x < posX + sizeX) {
+      if (y > posY && y < posY + sizeY) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+}
+
+class GameHandler{
+  char turn = 'x'; // either 'x' or 'o'
+  
+  GameHandler(){
+    //turn = round(random(0, 1)) == 1? 'x' : 'o';
+    turn = 'x';
+  }
+  
+  void TurnTaken(){
+    // toggle turn
+    turn = turn=='x'? 'o' : 'x';
+  }
+  
+  char AntiTurn(){
+    return turn=='x'? 'o' : 'x';
+  }
+}
+
+class Symbol{
+  
+  char symbol = 'x'; // can be 'x' or 'o'
+  
+  boolean active;
+  
+  float posX;
+  float posY;
+  float sizeX;
+  float sizeY;
+  
+  int thickness = 10;
+  
+  float alpha;
+  float colorOffset;
+  
+  boolean greyOut = false;
+  
+  Symbol(){
+    Init();
+  }
+  
+  Symbol(float x, float y, float sx, float sy){
+    posX = x;
+    posY = y;
+    sizeX = sx;
+    sizeY = sy;
+    
+    Init();
+  }
+  
+  void Set(float x, float y, float sx, float sy){
+    posX = x;
+    posY = y;
+    sizeX = sx;
+    sizeY = sy;
+  }
+  
+  void Init(){
+    symbol = ' ';
+    active = false;
+    alpha = 255;
+    colorOffset = 0;
+  }
+  
+  void Show(){
+    if(active){
+      
+      noFill();
+      strokeWeight(thickness);
+      
+      float greyOutValue = greyOut? 150 : 0;
+      float greyOutAlpha = greyOut? 100 : 0; // 105 : 0
+      
+      if(symbol == 'x'){
+        
+        stroke(255 - greyOutValue - colorOffset, 0, 0, alpha - greyOutAlpha);
+        
+        line(posX, posY, posX + sizeX, posY + sizeY);
+        line(posX + sizeX, posY, posX, posY + sizeY);
+        
+      }else if(symbol == 'o'){
+        
+        stroke(0, 0, 255 - greyOutValue - colorOffset, alpha - greyOutAlpha);
+        
+        ellipse(posX + sizeX * 0.5, posY + sizeY * 0.5, sizeX, sizeY);
+        
+      }
+    }
+  }
+}
+
+// Depends on:
+// GameHandler
+// Board
+// Button
+
+class TicTacToeBoard extends Board{
+  
+  Symbol[][] symbols = new Symbol[3][3];
+  
+  boolean moveMade = false;
+  int moveX = 0;
+  int moveY = 0;
+  
+  boolean win = false;
+  char winningSymbol = ' ';
+  boolean initialWin = false;
+  
+  TicTacToeBoard() {
+    Init();
+    InitTic();
+    
+    AdjustButtons();
+    AdjustSymbols();
+  }
+
+  TicTacToeBoard(float x, float y, float sx, float sy, float _insets) {
+    Init();
+    InitTic();
+
+    posX = x;
+    posY = y;
+    sizeX = sx;
+    sizeY = sy;
+
+    insets = _insets;
+    
+    AdjustButtons();
+    AdjustSymbols();
+  }
+  
+  void InitTic(){
+    ClearSymbols(); 
+    full = false;
+  }
+  
+  void AdjustSymbols(){
+    
+    float spacingX = (sizeX - 2 * insets) / 3.0;
+    float spacingY = (sizeY - 2 * insets) / 3.0;
+    
+    float startX = posX + insets + buttonInsets;
+    float startY = posY + insets + buttonInsets;
+    
+    float sx = spacingX - 2*buttonInsets;
+    float sy = spacingY - 2*buttonInsets;
+    
+    symbols[0][0] = new Symbol(startX, startY, sx, sy);
+    symbols[1][0] = new Symbol(startX + spacingX, startY, sx, sy);
+    symbols[2][0] = new Symbol(startX + 2*spacingX, startY, sx, sy);
+    
+    startY = posY + insets + spacingY + buttonInsets;
+    symbols[0][1] = new Symbol(startX, startY, sx, sy);
+    symbols[1][1] = new Symbol(startX + spacingX, startY, sx, sy);
+    symbols[2][1] = new Symbol(startX + 2*spacingX, startY, sx, sy);
+    
+    startY = posY + insets + 2 * spacingY + buttonInsets;
+    symbols[0][2] = new Symbol(startX, startY, sx, sy);
+    symbols[1][2] = new Symbol(startX + spacingX, startY, sx, sy);
+    symbols[2][2] = new Symbol(startX + 2*spacingX, startY, sx, sy);
+  }
+  
+  void ClearSymbols(){
+    for(int x = 0; x < symbols[0].length; x++){
+      for(int y = 0; y < symbols[1].length; y++){
+        symbols[x][y] = new Symbol();
+        symbols[x][y].active = false;
+      }
+    }
+  }
+  
+  void Update() {
+    UpdateButtons();
+    
+    CheckInput();
+    
+    if(!win)
+    CheckWin();
+    
+    CheckFull();
+  }
+  
+  void CheckFull(){
+    full = true;
+    for(int x = 0; x < 3; x++){
+      for(int y = 0; y < 3; y++){
+        if(!isTicSymbol(tiles[x][y])){
+          full = false;
+          break;
+        }
+      }
+    }
+  }
+  
+  void CheckInput(){
+    for(int x = 0; x < buttons[0].length; x++){
+      for(int y = 0; y < buttons[1].length; y++){
+        if(buttons[x][y].pressed && buttons[x][y].active){
+          MoveMadeAt(x,y);
+        }
+      }
+    }
+  }
+  
+  void Show(){
+    ShowBoard();
+    //ShowButtons();
+    ShowSymbols();
+  }
+  
+  void ShowSymbols(){
+    for(int x = 0; x < symbols[0].length; x++){
+      for(int y = 0; y < symbols[1].length; y++){
+        symbols[x][y].Show();
+      }
+    }
+  }
+  
+  void MoveMadeAt(int x, int y){
+    moveMade = true;
+    moveX = x;
+    moveY = y;
+    buttons[x][y].active = false;
+    tiles[x][y] = gameHandler.turn;
+    symbols[x][y].active = true;
+    symbols[x][y].symbol = gameHandler.turn;
+    gameHandler.TurnTaken();
+  }
+  
+  void Deactivate(){
+    active = false;
+    SetGreyAllSymbols(true);
+  }
+  
+  void Activate(){
+    active = true;
+    SetGreyAllSymbols(false);
+  }
+  
+  void SetGreyAllSymbols(boolean value){
+    for(int x = 0; x < symbols[0].length; x++){
+      for(int y = 0; y < symbols[1].length; y++){
+        symbols[x][y].greyOut = value;
+      }
+    }
+  }
+  
+  void CheckWin(){
+    // Check horizontals
+    int y = 0;
+    char firstSymbol = tiles[0][y];
+    if(tiles[1][y] == firstSymbol && tiles[2][y] == firstSymbol && isTicSymbol(firstSymbol)){
+      win = true;
+      winningSymbol = firstSymbol;
+    }
+    
+    y = 1;
+    firstSymbol = tiles[0][y];
+    if(tiles[1][y] == firstSymbol && tiles[2][y] == firstSymbol && isTicSymbol(firstSymbol)){
+      win = true;
+      winningSymbol = firstSymbol;
+    }
+    
+    y = 2;
+    firstSymbol = tiles[0][y];
+    if(tiles[1][y] == firstSymbol && tiles[2][y] == firstSymbol && isTicSymbol(firstSymbol)){
+      win = true;
+      winningSymbol = firstSymbol;
+    }
+    
+    // Check vertical
+    int x = 0;
+    firstSymbol = tiles[x][0];
+    if(tiles[x][1] == firstSymbol && tiles[x][2] == firstSymbol && isTicSymbol(firstSymbol)){
+      win = true;
+      winningSymbol = firstSymbol;
+    }
+    
+    x = 1;
+    firstSymbol = tiles[x][0];
+    if(tiles[x][1] == firstSymbol && tiles[x][2] == firstSymbol && isTicSymbol(firstSymbol)){
+      win = true;
+      winningSymbol = firstSymbol;
+    }
+    
+    x = 2;
+    firstSymbol = tiles[x][0];
+    if(tiles[x][1] == firstSymbol && tiles[x][2] == firstSymbol && isTicSymbol(firstSymbol)){
+      win = true;
+      winningSymbol = firstSymbol;
+    }
+    
+    
+    
+    // Diagonal
+    firstSymbol = tiles[0][0];
+    if(tiles[1][1] == firstSymbol && tiles[2][2] == firstSymbol && isTicSymbol(firstSymbol)){
+      win = true;
+      winningSymbol = firstSymbol;
+    }
+    
+    firstSymbol = tiles[2][0];
+    if(tiles[1][1] == firstSymbol && tiles[0][2] == firstSymbol && isTicSymbol(firstSymbol)){
+      win = true;
+      winningSymbol = firstSymbol;
+    }
+    
+    
+    initialWin = win;
+  }
+  
+  boolean isTicSymbol(char symbol){
+    if(symbol == 'x' || symbol == 'o')
+      return true;
+    
+    return false;
+  }
+}
+		</script>
+		<canvas> </canvas>
+	</body>
+</html>
